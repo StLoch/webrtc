@@ -847,19 +847,42 @@ bool VoiceChannel::SetRemoteContent_w(const MediaContentDescription* content,
 
   RtpHeaderExtensions rtp_header_extensions =
       GetFilteredRtpHeaderExtensions(audio->rtp_header_extensions());
+  // UpdateRtpHeaderExtensionMap(rtp_header_extensions);
 
-  AudioSendParameters send_params = last_send_params_;
-  RtpSendParametersFromMediaDescription(audio, rtp_header_extensions,
-                                        &send_params);
-  send_params.mid = content_name();
+  {
+    AudioSendParameters send_params = last_send_params_;
+    RtpSendParametersFromMediaDescription(audio, rtp_header_extensions,
+                                          &send_params);
+    send_params.mid = content_name();
 
-  bool parameters_applied = media_channel()->SetSendParameters(send_params);
-  if (!parameters_applied) {
-    SafeSetError("Failed to set remote audio description send parameters.",
-                 error_desc);
-    return false;
+    bool parameters_applied = media_channel()->SetSendParameters(send_params);
+    if (!parameters_applied) {
+      SafeSetError("Failed to set remote audio description send parameters.",
+                  error_desc);
+      return false;
+    }
+    last_send_params_ = send_params;
   }
-  last_send_params_ = send_params;
+
+  {
+    AudioRecvParameters recv_params = last_recv_params_;
+    RtpParametersFromMediaDescription(audio, rtp_header_extensions, &recv_params);
+    if (!media_channel()->SetRecvParameters(recv_params)) {
+      SafeSetError("Failed to set local audio description recv parameters.",
+                  error_desc);
+      return false;
+    }
+    for (const AudioCodec& codec : audio->codecs()) {
+      AddHandledPayloadType(codec.id);
+    }
+    // Need to re-register the sink to update the handled payload.
+    if (!RegisterRtpDemuxerSink()) {
+      RTC_LOG(LS_ERROR) << "Failed to set up audio demuxing.";
+      return false;
+    }
+
+    last_recv_params_ = recv_params;
+  }
 
   // TODO(pthatcher): Move remote streams into AudioRecvParameters,
   // and only give it to the media channel once we have a local
@@ -982,23 +1005,46 @@ bool VideoChannel::SetRemoteContent_w(const MediaContentDescription* content,
 
   RtpHeaderExtensions rtp_header_extensions =
       GetFilteredRtpHeaderExtensions(video->rtp_header_extensions());
+  // UpdateRtpHeaderExtensionMap(rtp_header_extensions);
 
-  VideoSendParameters send_params = last_send_params_;
-  RtpSendParametersFromMediaDescription(video, rtp_header_extensions,
-                                        &send_params);
-  if (video->conference_mode()) {
-    send_params.conference_mode = true;
+  {
+    VideoSendParameters send_params = last_send_params_;
+    RtpSendParametersFromMediaDescription(video, rtp_header_extensions,
+                                          &send_params);
+    if (video->conference_mode()) {
+      send_params.conference_mode = true;
+    }
+    send_params.mid = content_name();
+
+    bool parameters_applied = media_channel()->SetSendParameters(send_params);
+
+    if (!parameters_applied) {
+      SafeSetError("Failed to set remote video description send parameters.",
+                  error_desc);
+      return false;
+    }
+    last_send_params_ = send_params;
   }
-  send_params.mid = content_name();
 
-  bool parameters_applied = media_channel()->SetSendParameters(send_params);
+  {
+    VideoRecvParameters recv_params = last_recv_params_;
+    RtpParametersFromMediaDescription(video, rtp_header_extensions, &recv_params);
+    if (!media_channel()->SetRecvParameters(recv_params)) {
+      SafeSetError("Failed to set local video description recv parameters.",
+                  error_desc);
+      return false;
+    }
+    for (const VideoCodec& codec : video->codecs()) {
+      AddHandledPayloadType(codec.id);
+    }
+    // Need to re-register the sink to update the handled payload.
+    if (!RegisterRtpDemuxerSink()) {
+      RTC_LOG(LS_ERROR) << "Failed to set up video demuxing.";
+      return false;
+    }
 
-  if (!parameters_applied) {
-    SafeSetError("Failed to set remote video description send parameters.",
-                 error_desc);
-    return false;
+    last_recv_params_ = recv_params;
   }
-  last_send_params_ = send_params;
 
   // TODO(pthatcher): Move remote streams into VideoRecvParameters,
   // and only give it to the media channel once we have a local
@@ -1102,7 +1148,6 @@ bool RtpDataChannel::SetLocalContent_w(const MediaContentDescription* content,
     RTC_LOG(LS_ERROR) << "Failed to set up data demuxing.";
     return false;
   }
-
   last_recv_params_ = recv_params;
 
   // TODO(pthatcher): Move local streams into DataSendParameters, and
@@ -1147,15 +1192,37 @@ bool RtpDataChannel::SetRemoteContent_w(const MediaContentDescription* content,
       GetFilteredRtpHeaderExtensions(data->rtp_header_extensions());
 
   RTC_LOG(LS_INFO) << "Setting remote data description";
-  DataSendParameters send_params = last_send_params_;
-  RtpSendParametersFromMediaDescription<DataCodec>(data, rtp_header_extensions,
-                                                   &send_params);
-  if (!media_channel()->SetSendParameters(send_params)) {
-    SafeSetError("Failed to set remote data description send parameters.",
-                 error_desc);
-    return false;
+
+  {
+    DataSendParameters send_params = last_send_params_;
+    RtpSendParametersFromMediaDescription<DataCodec>(data, rtp_header_extensions,
+                                                    &send_params);
+    if (!media_channel()->SetSendParameters(send_params)) {
+      SafeSetError("Failed to set remote data description send parameters.",
+                  error_desc);
+      return false;
+    }
+    last_send_params_ = send_params;
   }
-  last_send_params_ = send_params;
+
+  {
+    DataRecvParameters recv_params = last_recv_params_;
+    RtpParametersFromMediaDescription(data, rtp_header_extensions, &recv_params);
+    if (!media_channel()->SetRecvParameters(recv_params)) {
+      SafeSetError("Failed to set remote data description recv parameters.",
+                  error_desc);
+      return false;
+    }
+    for (const DataCodec& codec : data->codecs()) {
+      AddHandledPayloadType(codec.id);
+    }
+    // Need to re-register the sink to update the handled payload.
+    if (!RegisterRtpDemuxerSink()) {
+      RTC_LOG(LS_ERROR) << "Failed to set up data demuxing.";
+      return false;
+    }
+    last_recv_params_ = recv_params;
+  }
 
   // TODO(pthatcher): Move remote streams into DataRecvParameters,
   // and only give it to the media channel once we have a local
