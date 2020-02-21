@@ -11,6 +11,7 @@
 #include "media/engine/webrtcvideoengine.h"
 
 #include <stdio.h>
+
 #include <algorithm>
 #include <set>
 #include <string>
@@ -117,18 +118,18 @@ std::vector<VideoCodec> AssignPayloadTypesAndDefaultCodecs(
   static const int kLastDynamicPayloadType = 127;
   int payload_type = kFirstDynamicPayloadType;
 
-  input_formats.push_back(webrtc::SdpVideoFormat(kRedCodecName));
-  input_formats.push_back(webrtc::SdpVideoFormat(kUlpfecCodecName));
+  // input_formats.push_back(webrtc::SdpVideoFormat(kRedCodecName));
+  // input_formats.push_back(webrtc::SdpVideoFormat(kUlpfecCodecName));
 
-  if (IsFlexfecAdvertisedFieldTrialEnabled()) {
-    webrtc::SdpVideoFormat flexfec_format(kFlexfecCodecName);
-    // This value is currently arbitrarily set to 10 seconds. (The unit
-    // is microseconds.) This parameter MUST be present in the SDP, but
-    // we never use the actual value anywhere in our code however.
-    // TODO(brandtr): Consider honouring this value in the sender and receiver.
-    flexfec_format.parameters = {{kFlexfecFmtpRepairWindow, "10000000"}};
-    input_formats.push_back(flexfec_format);
-  }
+  // if (IsFlexfecAdvertisedFieldTrialEnabled()) {
+  //   webrtc::SdpVideoFormat flexfec_format(kFlexfecCodecName);
+  //   // This value is currently arbitrarily set to 10 seconds. (The unit
+  //   // is microseconds.) This parameter MUST be present in the SDP, but
+  //   // we never use the actual value anywhere in our code however.
+  //   // TODO(brandtr): Consider honouring this value in the sender and receiver.
+  //   flexfec_format.parameters = {{kFlexfecFmtpRepairWindow, "10000000"}};
+  //   input_formats.push_back(flexfec_format);
+  // }
 
   std::vector<VideoCodec> output_codecs;
   for (const webrtc::SdpVideoFormat& format : input_formats) {
@@ -249,9 +250,9 @@ static bool ValidateStreamParams(const StreamParams& sp) {
 // Returns true if the given codec is disallowed from doing simulcast.
 bool IsCodecBlacklistedForSimulcast(const std::string& codec_name) {
   return webrtc::field_trial::IsEnabled("WebRTC-H264Simulcast")
-    ? CodecNamesEq(codec_name, kVp9CodecName)
-    : CodecNamesEq(codec_name, kH264CodecName) ||
-      CodecNamesEq(codec_name, kVp9CodecName);
+             ? CodecNamesEq(codec_name, kVp9CodecName)
+             : CodecNamesEq(codec_name, kH264CodecName) ||
+                   CodecNamesEq(codec_name, kVp9CodecName);
 }
 
 // The selected thresholds for QVGA and VGA corresponded to a QP around 10.
@@ -733,6 +734,24 @@ bool WebRtcVideoChannel::SetSendParameters(const VideoSendParameters& params) {
     call_->GetTransportControllerSend()->SetSdpBitrateParameters(
         bitrate_config_);
   }
+
+  // brwils: Not sure why I added this. doesn't compile :(
+  // {
+  //   if (changed_params.codec_settings) {
+  //     RTC_LOG(LS_INFO) << "Changing recv codecs from "
+  //                      << CodecSettingsVectorToString(recv_codecs_) << " to "
+  //                      << CodecSettingsVectorToString(
+  //                             *changed_params.codec_settings);
+  //     recv_codecs_ = *changed_params.codec_settings;
+  //   }
+
+  //   {
+  //     rtc::CritScope stream_lock(&stream_crit_);
+  //     for (auto& kv : receive_streams_) {
+  //       kv.second->SetRecvParameters(changed_params);
+  //     }
+  //   }
+  // }
 
   {
     rtc::CritScope stream_lock(&stream_crit_);
@@ -2683,7 +2702,7 @@ std::vector<webrtc::VideoStream> EncoderStreamFactory::CreateEncoderStreams(
   std::vector<webrtc::VideoStream> layers;
 
   if (encoder_config.number_of_streams > 1 ||
-     ((CodecNamesEq(codec_name_, kVp8CodecName) ||
+      ((CodecNamesEq(codec_name_, kVp8CodecName) ||
         CodecNamesEq(codec_name_, kH264CodecName)) &&
        is_screenshare_ && screenshare_config_explicitly_enabled_)) {
     bool temporal_layers_supported = CodecNamesEq(codec_name_, kVp8CodecName);
