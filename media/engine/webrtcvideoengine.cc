@@ -118,18 +118,21 @@ std::vector<VideoCodec> AssignPayloadTypesAndDefaultCodecs(
   static const int kLastDynamicPayloadType = 127;
   int payload_type = kFirstDynamicPayloadType;
 
-  // input_formats.push_back(webrtc::SdpVideoFormat(kRedCodecName));
-  // input_formats.push_back(webrtc::SdpVideoFormat(kUlpfecCodecName));
+// brwils - edits
+#if !DISABLE_RED
+  input_formats.push_back(webrtc::SdpVideoFormat(kRedCodecName));
+  input_formats.push_back(webrtc::SdpVideoFormat(kUlpfecCodecName));
 
-  // if (IsFlexfecAdvertisedFieldTrialEnabled()) {
-  //   webrtc::SdpVideoFormat flexfec_format(kFlexfecCodecName);
-  //   // This value is currently arbitrarily set to 10 seconds. (The unit
-  //   // is microseconds.) This parameter MUST be present in the SDP, but
-  //   // we never use the actual value anywhere in our code however.
-  //   // TODO(brandtr): Consider honouring this value in the sender and receiver.
-  //   flexfec_format.parameters = {{kFlexfecFmtpRepairWindow, "10000000"}};
-  //   input_formats.push_back(flexfec_format);
-  // }
+  if (IsFlexfecAdvertisedFieldTrialEnabled()) {
+    webrtc::SdpVideoFormat flexfec_format(kFlexfecCodecName);
+    // This value is currently arbitrarily set to 10 seconds. (The unit
+    // is microseconds.) This parameter MUST be present in the SDP, but
+    // we never use the actual value anywhere in our code however.
+    // TODO(brandtr): Consider honouring this value in the sender and receiver.
+    flexfec_format.parameters = {{kFlexfecFmtpRepairWindow, "10000000"}};
+    input_formats.push_back(flexfec_format);
+  }
+#endif // DISABLE_RED
 
   std::vector<VideoCodec> output_codecs;
   for (const webrtc::SdpVideoFormat& format : input_formats) {
