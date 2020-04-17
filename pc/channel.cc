@@ -864,7 +864,17 @@ bool VoiceChannel::SetRemoteContent_w(const MediaContentDescription* content,
     last_send_params_ = send_params;
   }
 
+// The media server updates the ID associations with codecs when sending its answer and webrtc
+// doesn't seem to, by default, recognize those updates, which means the recv functions sees IDs and
+// it mismatches codecs. To fix this, when getting the answer and setting the remote description, we
+// also update the recv parameters. Unfortunately, in peer to peer mode where hololens makes the
+// offer, this fails saying multiplex isn't supported. There is certainly a better way to do this. I
+// played *very briefly* with updating the local description with the answer from the remote to see
+// if it would resolve the issue (seems to make more sense?) but didn't have immediate luck. This
+// warrants additional investigation and maybe a call to dublin.
+#ifdef MEDIA_BROADCAST_FIX
   {
+    RTC_LOG(LS_INFO) << "WORKAROUND: Calling SetRecvParameters to account for ID updates from remote.";
     AudioRecvParameters recv_params = last_recv_params_;
     RtpParametersFromMediaDescription(audio, rtp_header_extensions, &recv_params);
     if (!media_channel()->SetRecvParameters(recv_params)) {
@@ -883,6 +893,9 @@ bool VoiceChannel::SetRemoteContent_w(const MediaContentDescription* content,
 
     last_recv_params_ = recv_params;
   }
+#else
+    RTC_LOG(LS_INFO) << "Skipping SetRecvParameters workaround.";
+#endif
 
   // TODO(pthatcher): Move remote streams into AudioRecvParameters,
   // and only give it to the media channel once we have a local
@@ -1026,6 +1039,16 @@ bool VideoChannel::SetRemoteContent_w(const MediaContentDescription* content,
     last_send_params_ = send_params;
   }
 
+
+// The media server updates the ID associations with codecs when sending its answer and webrtc
+// doesn't seem to, by default, recognize those updates, which means the recv functions sees IDs and
+// it mismatches codecs. To fix this, when getting the answer and setting the remote description, we
+// also update the recv parameters. Unfortunately, in peer to peer mode where hololens makes the
+// offer, this fails saying multiplex isn't supported. There is certainly a better way to do this. I
+// played *very briefly* with updating the local description with the answer from the remote to see
+// if it would resolve the issue (seems to make more sense?) but didn't have immediate luck. This
+// warrants additional investigation and maybe a call to dublin.
+#ifdef MEDIA_BROADCAST_FIX
   {
     VideoRecvParameters recv_params = last_recv_params_;
     RtpParametersFromMediaDescription(video, rtp_header_extensions, &recv_params);
@@ -1045,6 +1068,10 @@ bool VideoChannel::SetRemoteContent_w(const MediaContentDescription* content,
 
     last_recv_params_ = recv_params;
   }
+#else
+    RTC_LOG(LS_INFO) << "Skipping SetRecvParameters workaround.";
+#endif
+
 
   // TODO(pthatcher): Move remote streams into VideoRecvParameters,
   // and only give it to the media channel once we have a local
