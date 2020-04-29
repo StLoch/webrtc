@@ -177,10 +177,11 @@ int32_t AudioDeviceModuleImpl::CreatePlatformSpecificObjects() {
   if ((audio_layer == kWindowsCoreAudio) ||
       (audio_layer == kPlatformDefaultAudio)) {
     RTC_LOG(INFO) << "Attempting to use the Windows Core Audio APIs...";
-    if (AudioDeviceWindowsCore::CoreAudioIsSupported()) {
+    // There is no fallback. We crash if we don't pick something. Just do it.
+    //if (AudioDeviceWindowsCore::CoreAudioIsSupported()) {
       audio_device_.reset(new AudioDeviceWindowsCore());
       RTC_LOG(INFO) << "Windows Core Audio APIs will be utilized";
-    }
+    // }
   }
 #endif  // defined(WEBRTC_WINDOWS_CORE_AUDIO_BUILD)
 

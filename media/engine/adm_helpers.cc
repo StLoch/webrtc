@@ -25,12 +25,10 @@ namespace adm_helpers {
 //
 // Using a #define for AUDIO_DEVICE since we will call *different* versions of
 // the ADM functions, depending on the ID type.
-#if defined(WEBRTC_WIN)
+
+// BRWILS - Hard code this. We're not on windows xp.
 #define AUDIO_DEVICE_ID \
   (AudioDeviceModule::WindowsDeviceType::kDefaultCommunicationDevice)
-#else
-#define AUDIO_DEVICE_ID (0u)
-#endif  // defined(WEBRTC_WIN)
 
 void Init(AudioDeviceModule* adm) {
   RTC_DCHECK(adm);
